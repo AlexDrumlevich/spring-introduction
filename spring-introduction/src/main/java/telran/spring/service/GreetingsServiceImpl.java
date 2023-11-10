@@ -1,120 +1,86 @@
 package telran.spring.service;
 
-import java.awt.RenderingHints.Key;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-
 import org.springframework.stereotype.Service;
-@Service
-public class GreetingsServiceImpl implements GreetingsService {
-    
-	//GREETING
-	   Map<Long, String> greetingsMap = new HashMap<>(Map.of(123l, "David", 124l, "Sara",125l, "Rivka"));
-	
-	@Override
-	public String getGreetings(long id) {	
-		String name =  greetingsMap.getOrDefault(id, "Unknown Guest");
-		return "Hello, " + name;
-	
-	}
-	
-	
-	//ID NAME
-	
-	@Override
-	public String addName(IdName idName) {
-		String name = greetingsMap.putIfAbsent(idName.id(), idName.name());
-		if(name != null) {
-			throw new IllegalStateException(idName.id() + " already exists");
-		}
-		return idName.name();
-	}
-	
-	@Override
-	public String deleteName(long id) {
-		String name = greetingsMap.remove(id);
-		if(name == null) {
-			throw new IllegalStateException(id + " not found");
-		}
-		return name;
-	}
-	
-	@Override
-	public String updateName(IdName idName) {
-		if(!greetingsMap.containsKey(idName.id())) {
-			throw new IllegalStateException(idName.id() + " not found");
-		}
-		greetingsMap.put(idName.id(), idName.name());
-		return idName.name();
-	}
 
+import lombok.extern.slf4j.Slf4j;
+import telran.exceptions.NotFoundException;
+
+
+@Service
+@Slf4j
+public class GreetingsServiceImpl implements GreetingsService {
+    Map<Long, Person> greetingsMap = new HashMap<>();
 	
+    @Override
+	public String getGreetings(long id) {
+    	log.debug("method getGreetings of class GreetingsServiceImpl, received id {}", id);
+		Person person =  greetingsMap.get(id);
+		log.debug("method getGreetings of class GreetingsServiceImpl, got from greetingsMap Person {}", person);
+		String name = person == null ? "Unknown guest" : person.name();
+		String result = "Hello, " + name;
+		log.debug("method getGreetings of class GreetingsServiceImpl, returned Strung {}", result);
+		return result;
+	}
 	
-	//PERSON
-	
-	
-	 private Map<Long, Person> personsByIdMap = new HashMap<>();
-	 private Map<String, Set<Person>> personsByCityMap = new HashMap<>();
-	
-	 
 	@Override
 	public Person getPerson(long id) {
-		// TODO
-		return personsByIdMap.get(id);
+		log.debug("method getPerson of class GreetingsServiceImpl, received id {}", id);
+		Person result = greetingsMap.get(id);
+		log.debug("method getPerson of class GreetingsServiceImpl, returned Person {}", result);
+		if(result == null) {
+			throw new NotFoundException(String.format("person with id %d doesn't exist", id));
+		}
+		return result;
 	}
-
+	
 	@Override
 	public List<Person> getPersonsByCity(String city) {
-		// TODO
-		Set<Person> persons = personsByCityMap.get(city); 
-		return persons == null ? null : new ArrayList<Person>(personsByCityMap.get(city));
+		log.debug("method getPersonsByCity of class GreetingsServiceImpl, received String city {}", city);
+		List<Person> persons = greetingsMap.values().stream()
+				.filter(p -> p.city().equals(city))
+				.toList();
+		log.debug("method getPersonsByCity of class GreetingsServiceImpl, returned Persons {}", persons);
+		return persons;
+		
 	}
-
 	@Override
 	public Person addPerson(Person person) {
-		// TODO
-		Person putResult = personsByIdMap.putIfAbsent(person.id(), person);
-		if (putResult == null) {
-			personsByCityMap.computeIfAbsent(person.city(), k -> new HashSet<Person>()).add(person);
+		log.debug("method addPerson of class GreetingsServiceImpl, received Person {}", person);
+		long id = person.id();
+		if (greetingsMap.containsKey(id) ){
+			throw new IllegalStateException(String.format("person with id %d already exists", id));
 		}
-		return putResult == null ? personsByIdMap.get(person.id()) : null;
+		Person putResult = greetingsMap.put(id, person);
+		log.debug("method addPerson of class GreetingsServiceImpl, result of put method greetingsMap Person {}", putResult);
+		log.debug("method addPerson of class GreetingsServiceImpl, returned Person {}", person);
+		return person;
 	}
-
+	
 	@Override
 	public Person deletePerson(long id) {
-		// TODO
-		Person removedPerson = personsByIdMap.remove(id);
-		if(removedPerson != null) {
-			personsByCityMap.get(removedPerson.city()).remove(removedPerson);
-			if(personsByCityMap.get(removedPerson.city()).isEmpty()) {
-				personsByCityMap.remove(removedPerson.city());
-			}
+		log.debug("method addPerson of class GreetingsServiceImpl, received id {}", id);
+		if (!greetingsMap.containsKey(id) ){
+			throw new NotFoundException(String.format("person with id %d doesn't exist", id));
 		}
-		return removedPerson;
+		Person result = greetingsMap.remove(id);
+		log.debug("method deletePerson of class GreetingsServiceImpl, returned Person {}", result);
+		return result;
 	}
-
+	
 	@Override
 	public Person updatePerson(Person person) {
-		// TODO
-		Person updatedPerson = null;
-		if(personsByIdMap.containsKey(person.id())) {
-			Person previousPerson = personsByIdMap.put(person.id(), person);
-			updatedPerson = personsByIdMap.get(person.id());
-			personsByCityMap.get(previousPerson.city()).remove(previousPerson);
-			if(personsByCityMap.get(previousPerson.city()).isEmpty() && !previousPerson.city().equals(updatedPerson.city())) {
-				personsByCityMap.remove(previousPerson.city());
-			}
-			personsByCityMap.computeIfAbsent(updatedPerson.city(), k -> new HashSet<Person>()).add(updatedPerson);
-			
+		log.debug("method updatePerson of class GreetingsServiceImpl, received Person {}", person);
+		long id = person.id();
+		if (!greetingsMap.containsKey(id) ){
+			throw new NotFoundException(String.format("person with id %d doesn't exist", id));
 		}
-		return updatedPerson;
+		Person putResult = greetingsMap.put(id, person);
+		log.debug("method updatePerson of class GreetingsServiceImpl, result of put method greetingsMap Person {}", putResult);
+		return person;
 	}
-	
-	
 
 }
 
